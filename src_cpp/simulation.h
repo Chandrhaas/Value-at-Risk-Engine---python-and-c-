@@ -15,7 +15,7 @@ struct Simresult
 };
 
 class MonteCarloEngine
-{   
+{   public:
     // We are using pass-by reference to save time which is taken to copy the data
     MonteCarloEngine(int sim, int assets,
                     const vector<double>&mean,
@@ -42,9 +42,9 @@ class MonteCarloEngine
 extern "C"
 {
     //python cannot create the object so here we do it
-    MonteCarloEngine* MonteCarloEngine_new(int num_sims, int num_assets, 
-                                           double* means, double* cov_matrix, 
-                                           double* weights, double initial_portfolio_value);
+    MonteCarloEngine* MonteCarloEngine_new(int sim, int assets, 
+                                           double* mean, double* cov, 
+                                           double* weights, double portfolio_value);
     
     void MonteCarloEngine_run(MonteCarloEngine* engine);
 
