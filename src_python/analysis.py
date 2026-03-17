@@ -15,9 +15,11 @@ def calculate_parameters(input="data/stock_prices.csv"):
     #returns = log(a t/ a t-1) , we take log beacause it is addidtive over time and addition is faster than multiplication
     returns = np.log(prices/prices.shift(1)).dropna()
 
-    mean= returns.mean()
+    trading_days=252
 
-    covs=returns.cov()
+    mean= returns.mean()*trading_days
+
+    covs=returns.cov()*trading_days
 
     mean.to_csv("data/means.csv")
     covs.to_csv("data/covariance.csv")

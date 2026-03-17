@@ -80,7 +80,7 @@ SimResult MonteCarloEngine::runSimulation(
         {
             double volatility = sqrt(cov_matrix[a * assets + a]);
             double drift = mean_returns[a] - 0.5 * volatility * volatility;
-            double diffusion = volatility * correlated_randoms[a];
+            double diffusion =  correlated_randoms[a];
             
             double return_factor = exp(drift + diffusion);
             current_value += (initial_portfolio_value * weights[a]) * return_factor;
