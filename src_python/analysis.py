@@ -24,7 +24,7 @@ def calculate_parameters(input="data/stock_prices.csv"):
     mean.to_csv("data/means.csv")
     covs.to_csv("data/covariance.csv")
 
-    print("\nCalculated Means (Daily):")
+    print("\nCalculated Means (Annual):")
     print(mean)
     print("\nCalculated Covariance Matrix:")
     print(covs)
