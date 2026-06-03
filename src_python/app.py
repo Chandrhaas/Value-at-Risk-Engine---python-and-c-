@@ -77,13 +77,13 @@ if st.button("Run Risk Analysis", type="primary"):
                     if var_95 < 0:
                         st.metric("95% VaR", f"No loss expected", f"Min gain: ${abs(var_95):,.2f}")
                     else:
-                        st.metric("95% VaR", f"${var_95:,.2f} max loss")
+                        st.metric("95% VaR", f"${var_95:,.2f} ","max loss")
                 with col2:
                     var_99 = metrics['var_99']
                     if var_99 < 0:
                         st.metric("99% VaR", f"No loss expected", f"Min gain: ${abs(var_99):,.2f}")
                     else:
-                        st.metric("99% VaR", f"${var_99:,.2f} max loss")
+                        st.metric("99% VaR", f"${var_99:,.2f}","max loss")
                 with col3:
                     st.metric(label="Expected Shortfall", value=f"${metrics['cvar']:,.2f}")
                     
