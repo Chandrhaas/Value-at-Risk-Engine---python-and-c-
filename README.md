@@ -6,7 +6,7 @@ Computes **95% VaR, 99% VaR, and Expected Shortfall (CVaR)** across configurable
 
 # Demo
 
-https://github.com/user-attachments/assets/20650063-7e1b-466f-b25d-39571a19a5d1
+https://github.com/user-attachments/assets/f23b9b92-b7d6-4df0-bd2c-9c59152e13f0
 
 ---
 
