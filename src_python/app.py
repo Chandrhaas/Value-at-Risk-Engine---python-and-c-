@@ -4,7 +4,7 @@ import requests
 # Configure the page layout
 st.set_page_config(page_title="Monte Carlo Risk Engine", layout="centered")
 
-st.title("📈 Quant Risk Engine v2.0")
+st.title("📈 Risk Engine v2.0")
 st.write("Decoupled Microservice Architecture | C++ Pybind11 Backend")
 
 st.sidebar.header("Portfolio Parameters")

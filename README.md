@@ -1,64 +1,200 @@
-# Risk-Engine
-I built a high-performance Monte Carlo Risk Engine. It is a quantitative finance tool that simulates thousands of potential future market paths to calculate critical portfolio risk metrics, specifically 95% Value at Risk (VaR) , 99% Value at Risk(VaR) and Expected Shortfall
+# Quantitative Risk Engine v2.0
 
-![Image](https://github.com/user-attachments/assets/135048ca-9dc0-49ef-893c-63425492214a)
+A high-performance portfolio risk assessment system built on a **decoupled microservice architecture** — a C++ Monte Carlo simulation core exposed via a FastAPI REST service, bridged through zero-copy pybind11 memory transfers.
 
-# Technologies used
-* c++
-* python
-    * Numpy
-    * Pandas
-    * yfinance
-    * streamlit
-    * pybind11
+Computes **95% VaR, 99% VaR, and Expected Shortfall (CVaR)** across configurable multi-asset portfolios, with support for dynamic ticker selection and historical training windows of 1–4 years.
 
-# Features
-* Users can enter the stock tickers they want.
-* Users can enter the number of simulations they want to run.
-* Users can enter the size of the portfolio.
+![demo](https://github.com/user-attachments/assets/135048ca-9dc0-49ef-893c-63425492214a)
 
-The Risk Engine applies Cholesky Decomposition to ensure simulated asset paths respect real-world market correlations. It also utilizes zero-copy memory transfers, allowing massive 2D matrices to pass from Python to C++ instantly without slowing down the system.
+---
 
-# The Process
-I built this using a microservice-style architecture. I started by writing the data-fetching and statistical analysis modules in Python. Knowing Python is too slow for heavy Monte Carlo loops, I wrote the GBM (Geometric Brownian Motion) math natively in C++. To connect them, I engineered a Pybind11 bridge, allowing the Streamlit UI to hand off the heavy lifting to the compiled C++ binary, entirely bypassing Python's Global Interpreter Lock.
+## Architecture
 
-# Learnings
-* Learned how to architect cross-language systems and safely manage memory handoffs between Python arrays and C++ vectors.
-* Deepened my understanding of quantitative finance mathematics by implementing matrix transformations and random shock simulations entirely from scratch in C++, rather than relying on standard black-box libraries.
-* pybind11 , i came to know about it during this project and i immediately shifted from ctypes to it because it's so clean as compared to ctypes
+```
+┌─────────────────────┐        HTTP/JSON        ┌──────────────────────────┐
+│   Streamlit Frontend │ ──── POST /portfolio/var ──▶  FastAPI REST Service  │
+│     (src_python/     │ ◀──── RiskMetricsOutput ────  (api/main.py)         │
+│       app.py)        │                         └────────────┬─────────────┘
+└─────────────────────┘                                       │
+                                                    Pydantic validation
+                                                    yfinance data fetch
+                                                    Cholesky decomposition
+                                                              │
+                                                   zero-copy pybind11 bridge
+                                                              │
+                                                   ┌──────────▼─────────────┐
+                                                   │   C++ Monte Carlo Core  │
+                                                   │   (src_cpp/simulation)  │
+                                                   │   GBM · Cholesky · VaR  │
+                                                   └────────────────────────┘
+```
 
-# How to run
-* Clone the repository and install the Python dependencies from the requirements.txt file in a virtual environment.
-* Run make clean and make in the terminal to compile the C++ engine for your specific machine.
-* Run streamlit run app.py to launch the interactive web dashboard.
+The Streamlit frontend is fully decoupled — it knows nothing about the C++ engine. It sends a JSON payload to the FastAPI service and renders the response. Any other client (curl, Postman, another service) can consume the same API.
 
-# Assumptions
-## Mathematical 
-* **Normally Distributed Returns:** GBM assumes that daily log returns follow a perfect Bell Curve (Normal Distribution).
-* **Constant Volatility:** In our C++ loop, we calculated the volatility (variance) once and applied it evenly across all future paths.
-* **Continuous Prices:** GBM assumes prices move smoothly. It cannot account for "gaps" in pricing, like a stock dropping 20% overnight due to a bad earnings report while the market was closed.
+---
 
-## Data 
-* **Stationarity:** We fed the C++ engine the historical Mean Returns and Covariance Matrix from the last year, assuming those exact statistical properties will remain perfectly identical going forward.
-* **252 days year**
-* **Equally Weighted Portfolio**
+## Tech Stack
 
-## Market
-* **Zero Transaction Costs:** We assumed we could hold this portfolio without paying any broker fees, bid-ask spreads, or taxes.
-* **Perfect Liquidity:** We assumed that if our VaR is breached and we need to liquidate the portfolio, we can sell all our shares instantly at the exact market price without our own massive sell-off pushing the price down (slippage).
+| Layer | Technology |
+|---|---|
+| Simulation Core | C++ (Monte Carlo, GBM, Cholesky) |
+| Python–C++ Bridge | pybind11 (zero-copy memory transfer) |
+| REST API | FastAPI + Pydantic |
+| Data Fetching | yfinance |
+| Statistical Analysis | NumPy, Pandas |
+| Frontend | Streamlit |
+| Build System | Make |
 
-# Future Improvements
-## Performance & Compute Optimizations
-* **OpenMP Multi-threading:** Implementing #pragma omp parallel for in the C++ backend to distribute the Monte Carlo simulation paths across all available CPU cores simultaneously.
+---
 
-## Advanced Quantitative Models
-* **Quasi-Random Numbers (Sobol Sequences):** Replacing standard pseudo-random number generators (PRNG) with Sobol sequences to ensure the simulated random shocks cover the distribution space more evenly, resulting in faster and more accurate mathematical convergence.
-* **GARCH Volatility Modeling:** Upgrading from constant historical volatility to a dynamic GARCH(1,1) model to account for "volatility clustering"
-* **Jump-Diffusion Models (Merton's Model):** Injecting random "jumps" into the Geometric Brownian Motion equation to simulate sudden market crashes or overnight gaps in pricing.
-* **Fat-Tail Distributions:** Replacing the standard Normal Distribution with a Student's t-distribution to better model extreme, rare market events (Black Swans).
+## How It Works
 
-## System Architecture & Deployment
-* **FastAPI Microservice:** Decoupling the Streamlit frontend from the Pybind11 bridge by wrapping the C++ engine in a high-speed Python REST API (FastAPI).
-* **Docker Containerization:** Writing a Dockerfile to containerize the Linux environment, ensuring the C++ compiler, Pybind11, and Python dependencies run flawlessly on any cloud server without environment mismatch errors.
+### Step 1 — Data Ingestion
+`fetch_data.py` pulls historical adjusted closing prices from Yahoo Finance for user-specified tickers over a configurable window (1–4 years). Missing trading days are handled via forward-fill then backward-fill.
 
+### Step 2 — Parameter Estimation
+`analysis.py` computes annualised log-return means and the covariance matrix from historical data:
 
+```
+μ_annual = mean(log(P_t / P_{t-1})) × 252
+Σ_annual = cov(log returns) × 252
+```
+
+### Step 3 — Cholesky Decomposition
+The C++ engine factorises the covariance matrix `Σ = L Lᵀ` to generate **correlated** asset return paths. Applying `L` to a vector of independent standard normals produces shocks that respect the real-world correlation structure between assets.
+
+### Step 4 — Monte Carlo Simulation (C++ Core)
+For each of N simulations, the engine generates correlated random shocks and applies the Geometric Brownian Motion formula to project the portfolio value over 252 trading days:
+
+```
+S_T = S_0 × exp( (μ - ½σ²) + σZ )
+```
+
+where `Z ~ N(0,1)` is the Cholesky-correlated random shock. The result is a distribution of N terminal portfolio values.
+
+### Step 5 — Risk Metric Extraction
+Sorting the simulated terminal values in ascending order:
+
+```
+95% VaR  = Initial Value − P(5th percentile of terminal values)
+99% VaR  = Initial Value − P(1st percentile of terminal values)
+CVaR     = Initial Value − mean(worst 5% of terminal values)
+```
+
+A positive VaR means expected loss. A negative VaR means the portfolio is projected to gain even in adverse scenarios — a direct signal of model risk from over-optimistic training data.
+
+---
+
+## Key Finding — Model Risk
+
+One of the most instructive outputs of this engine is what happens when you change the training window:
+
+| Training Window | 95% VaR | 99% VaR | CVaR |
+|---|---|---|---|
+| 1 year (2024 bull market) | No loss expected | No loss expected | No loss expected |
+| 4 years (includes 2022 bear market) | $1,817 loss | $3,044 loss | $2,551 loss |
+
+**On a $10,000 portfolio of AAPL, MSFT, GOOGL.**
+
+A 1-year window trained on the 2024 bull market tells you there is no meaningful downside risk. A 4-year window that includes the 2022 bear market gives you a completely different picture. This is a concrete demonstration of why short-window historical simulation is dangerous in practice — the model inherits the optimism of the period you train on.
+
+---
+
+## API Reference
+
+### `POST /portfolio/var`
+Runs the full simulation pipeline and returns risk metrics.
+
+**Request body:**
+```json
+{
+  "tickers": ["AAPL", "MSFT", "GOOGL"],
+  "portfolio_size": 10000.0,
+  "num_simulations": 10000,
+  "years": 4
+}
+```
+
+**Constraints:** `portfolio_size` in (0, 1,000,000) · `num_simulations` in (999, 100,001) · `years` in (0, 5)
+
+**Response:**
+```json
+{
+  "var_95": 1816.92,
+  "var_99": 3043.54,
+  "cvar": 2551.42,
+  "message": "Simulation completed successfully via C++ engine."
+}
+```
+
+Positive values represent losses. Negative values indicate the portfolio gains even under the given adverse scenario.
+
+---
+
+## How to Run
+
+### 1. Clone and install dependencies
+```bash
+git clone https://github.com/Chandrhaas/Value-at-Risk-Engine---python-and-cpp.git
+cd Value-at-Risk-Engine---python-and-cpp
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 2. Compile the C++ engine
+```bash
+make clean && make
+```
+This compiles `src_cpp/simulation.cpp` and builds the `riskengine` pybind11 module into `build/`.
+
+### 3. Start the FastAPI server
+```bash
+uvicorn api.main:app --reload
+```
+API will be live at `http://127.0.0.1:8000`. Interactive docs at `http://127.0.0.1:8000/docs`.
+
+### 4. Launch the Streamlit frontend
+In a separate terminal:
+```bash
+streamlit run src_python/app.py
+```
+
+---
+
+## Mathematical Assumptions
+
+### Model
+- **Log-normal returns:** GBM assumes log returns are normally distributed. Real markets exhibit fat tails — extreme events occur more frequently than the normal distribution predicts.
+- **Constant volatility:** Volatility is estimated once from historical data and held fixed across all simulation paths. Real volatility clusters (GARCH effects) are not captured.
+- **Continuous prices:** GBM cannot model overnight gaps caused by earnings announcements or macro shocks.
+- **Single-period projection:** The engine projects the full 252-day horizon in one step, not as 252 daily steps. This is equivalent mathematically for terminal value but does not capture path-dependent risk.
+
+### Data
+- **Stationarity:** Historical mean returns and covariance are assumed to be stable forward estimates. This assumption breaks down across market regime changes.
+- **252 trading days per year**
+- **Equal portfolio weights**
+
+### Market
+- **Zero transaction costs**
+- **Perfect liquidity:** Full liquidation at market price is assumed, ignoring slippage from large position unwinds.
+
+---
+
+## Roadmap
+
+### In Progress
+- **ML-based VaR:** Replacing the parametric GBM model with a quantile regression neural network trained directly on historical return distributions — no distributional assumptions required.
+- **Docker containerisation:** Single `docker-compose up` to run the full stack.
+
+### Planned
+- **GARCH(1,1) volatility:** Dynamic volatility that accounts for volatility clustering and mean-reversion.
+- **Student's t-distribution:** Replacing the normal distribution to model fat-tailed return behaviour.
+- **OpenMP multi-threading:** Parallelising the Monte Carlo loop across CPU cores.
+- **Sobol sequences:** Quasi-random number generation for faster convergence.
+- **Jump-diffusion (Merton's model):** Adding Poisson-distributed jump terms to capture overnight gap risk.
+
+---
+
+## License
+MIT
