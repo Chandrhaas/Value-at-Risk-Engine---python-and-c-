@@ -4,7 +4,7 @@ A high-performance portfolio risk assessment system built on a **decoupled micro
 
 Computes **95% VaR, 99% VaR, and Expected Shortfall (CVaR)** across configurable multi-asset portfolios, with support for dynamic ticker selection and historical training windows of 1–4 years.
 
-![demo](https://github.com/user-attachments/assets/135048ca-9dc0-49ef-893c-63425492214a)
+![demo](https://github.com/user-attachments/assets/20650063-7e1b-466f-b25d-39571a19a5d1)
 
 ---
 
