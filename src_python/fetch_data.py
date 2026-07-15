@@ -2,11 +2,11 @@ import yfinance as yf
 import pandas as pd
 from typing import List
 
-def fetch_data(tickers:List[str],period:int=1):
+def fetch_data(tickers:List[str], period:int=1, align_dates:bool=True):
 
     per=str(period)+'y'
 
-    print("Downloading data for : {tickers}..")
+    print(f"Downloading data for : {tickers}..")
     try:
         tickers_str=" ".join(tickers)
         #auto adjust = false makes sure data is real and not automatically accounts for splits/diviends etc
@@ -28,13 +28,9 @@ def fetch_data(tickers:List[str],period:int=1):
             raise ValueError("Yahoo Finance returned empty data. Check your tickers.")
         
         
-        
-        #handling missing values by forward and backward shift , we use forward shift first because on some day we know the previous day's value
-        # but not the next day's , only for those days where we do not have a previous day's value we use the backward shift.
-        data = data.ffill().bfill()
-
         #Drop any days where a stock didn't trade
-        data.dropna(inplace=True)
+        if align_dates:
+            data.dropna(inplace=True)
 
         print(f"Successfully loaded {len(data)} trading days into memory.")
         return data
