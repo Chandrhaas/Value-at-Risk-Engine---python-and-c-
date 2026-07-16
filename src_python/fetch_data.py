@@ -1,3 +1,15 @@
+"""
+This script fetches data from yahoo finance.
+
+Returns
+--------
+pd.DataFrame
+    A time-series matrix of daily prices.
+    Index: Datetime of trading days.
+    Columns: Ticker symbols.
+    Shape: (n_trading_days, n_tickers)
+"""
+
 import yfinance as yf
 import pandas as pd
 from typing import List
