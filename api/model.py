@@ -5,7 +5,7 @@ class PortfolioInput(BaseModel):
     portfolio_size:Annotated[float,Field(...,gt=0,lt=1000000,description='total value of the portfolio')]
     tickers : Annotated[List[str],Field(...,description='tickers of the stocks in the portfolio')]
     num_simulations : Annotated[int,Field(...,gt=999,lt=100001,description='number of predicted futures')]
-    years: Annotated[int,Field(...,gt=0,lt=6,description= 'number of years worth of data to be considered')]
+    years: Annotated[int,Field(...,gt=0,lt=11,description= 'number of years worth of data to be considered')]
 
 class RiskMetricsOutput(BaseModel):
     var_95: Annotated[float, Field(description="The 95% Value at Risk dollar amount")]
