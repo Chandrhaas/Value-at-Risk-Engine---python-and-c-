@@ -14,15 +14,10 @@ risk for brand new tickers it has never seen before.
 Output shapes
 --------------
 X_train : (n_train_samples, 8) float64, standardized feature matrix
-
 y_train : (n_train_samples, 1) float64, next-realized log return
-
 X_test : (n_test_samples, 8) float64, standardized feature matrix
-
 y_test : (n_test_samples, 1) float64, next-realized log return
-
 n_samples = sum over tickers of (trading_days_available - warm_up_rows_dropped)
-
 8 features = 4 AR lags (lag_1, lag_2, lag_3, lag_5)+ 4 rolling volatility windows (vol_5, vol_10, vol_21, vol_63)
 """
 
@@ -46,7 +41,7 @@ LAG_DAYS: List[int] = [1, 2, 3, 5] #for short term momentum
 VOL_WINDOWS: List[int] = [5, 10, 21, 63] # for volatility
 FEATURE_COLUMNS: List[str] = ["lag_1", "lag_2", "lag_3", "lag_5","vol_5", "vol_10", "vol_21", "vol_63"]
 TRAIN_FRACTION: float = 0.8
-DEFAULT_YEARS: int = 5  # 5y captures COVID crash, 2021 bull, 2022 bear, 2023 recovery;
+DEFAULT_YEARS: int = 10  
 
 
 def compute_log_returns(prices: pd.DataFrame) -> pd.DataFrame:
@@ -219,7 +214,6 @@ def transform_with_scaler(feature_table: pd.DataFrame, scaler: StandardScaler):
 
 def build_feature_table(tickers: List[str], years: int = DEFAULT_YEARS) -> pd.DataFrame:
     """
-
     Fetch prices and build the engineered, unscaled, unsplit feature/target table for a given set of tickers.
     Reused for both the training universe(which then goes through temporal_train_test_split + fit_scaler_and_transform)
     and any held-out validation universe (which goes straight to transform_with_scaler).
