@@ -41,7 +41,7 @@ LAG_DAYS: List[int] = [1, 2, 3, 5] #for short term momentum
 VOL_WINDOWS: List[int] = [5, 10, 21, 63] # for volatility
 FEATURE_COLUMNS: List[str] = ["lag_1", "lag_2", "lag_3", "lag_5","vol_5", "vol_10", "vol_21", "vol_63"]
 TRAIN_FRACTION: float = 0.8
-DEFAULT_YEARS: int = 10  
+DEFAULT_YEARS: int = 5 
 
 
 def compute_log_returns(prices: pd.DataFrame) -> pd.DataFrame:
