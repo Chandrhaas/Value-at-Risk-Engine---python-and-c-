@@ -131,6 +131,9 @@ def predict_portfolio_var(
     tickers: List[str],
     weights: List[float],
     portfolio_value: float,
+    model: QuantileVaRNet = None,
+    scaler: object = None,
+    feature_columns: List[str] = None,
     model_dir: str = MODEL_DIR,
     years: int = INFERENCE_YEARS,
 ) -> Dict[str, object]:
@@ -155,7 +158,14 @@ def predict_portfolio_var(
     if len(tickers) != len(weights):
         raise ValueError(f"tickers ({len(tickers)}) and weights ({len(weights)}) must be the same length.")
 
-    model, scaler, feature_columns, quantiles = load_model_and_scaler(model_dir)
+    weight_sum = sum(weights)
+    if not (0.99 <= weight_sum <= 1.01):
+        raise ValueError(f"weights must sum to 1.0 (got {weight_sum:.4f}).")
+    if any(w < 0 for w in weights):
+        raise ValueError("weights must be non-negative (no short positions supported).")
+ 
+    if model is None or scaler is None or feature_columns is None:
+        model, scaler, feature_columns, _ = load_model_and_scaler(model_dir)
 
     per_ticker: Dict[str, Dict[str, object]] = {}
     var_95_total, var_99_total = 0.0, 0.0
@@ -165,14 +175,15 @@ def predict_portfolio_var(
         ticker_value = portfolio_value * weight
 
         # Dollar VaR, positive-loss convention (matches C++ engine's
-        # initial_value - final_value_at_quantile). Clipped at 0: the
-        # model predicts a return quantile, and while it should almost
-        # always be negative (that's what a tail quantile means), there's
-        # no hard architectural guarantee against an occasional non-negative
-        # prediction on a very calm feature row -- "negative VaR" is not a
-        # meaningful concept, so floor it rather than propagate nonsense.
-        var_95_ticker = ticker_value * max(-pred["q05_return"], 0.0)
-        var_99_ticker = ticker_value * max(-pred["q01_return"], 0.0)
+        # initial_value - final_value_at_quantile).
+        var_95_ticker = ticker_value * -pred["q05_return"]
+        var_99_ticker = ticker_value * -pred["q01_return"]
+        
+        if var_95_ticker < 0 or var_99_ticker < 0:
+            print(f"[predict_portfolio_var] Note: {ticker} implies a NEGATIVE "
+                    f"standalone VaR (var_95=${var_95_ticker:,.2f}, var_99=${var_99_ticker:,.2f}) "
+                    f"model reads this ticker as low-risk/bullish enough that even "
+                    f"its tail case is a gain.")
 
         per_ticker[ticker] = {
             **pred,
