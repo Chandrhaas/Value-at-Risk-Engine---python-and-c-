@@ -1,9 +1,12 @@
-numpy==2.4.3
-pandas==2.3.3
-pybind11==3.0.2
-streamlit==1.55.0
-yfinance==1.2.0
+numpy
+pandas
+pybind11
+streamlit
+yfinance
 fastapi
 uvicorn
 pydantic
 requests
+torch
+joblib
+scikit-learn
