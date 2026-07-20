@@ -1,5 +1,6 @@
 import os, sys
 from fastapi import FastAPI,HTTPException
+from fastapi.staticfiles import StaticFiles
 from api.model import (
     PortfolioInput,
     RiskMetricsOutput,
@@ -104,4 +105,13 @@ def calculate_var(req: PortfolioInput):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# Mounted LAST, after /portfolio/var 
+app.mount(
+    "/",
+    StaticFiles(
+        directory=os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend")),
+        html=True,
+    ),
+    name="frontend",
+)
 
