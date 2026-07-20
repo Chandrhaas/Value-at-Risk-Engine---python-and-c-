@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VaR Engine</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="page">
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">VaR</span>
+        <span class="brand-name">Risk Engine</span>
+      </div>
+      <div class="status">
+        <span class="status-dot"></span>
+        <span class="status-label" id="statusLabel">Ready</span>
+      </div>
+    </header>
+
+    <main class="layout">
+
+      <!-- Input panel -->
+      <section class="card panel-input">
+        <h2 class="panel-title">Portfolio</h2>
+
+        <form id="varForm">
+          <div class="field">
+            <label for="tickers">Tickers</label>
+            <input type="text" id="tickers" placeholder="AAPL, MSFT, JPM" autocomplete="off" required>
+            <p class="hint">Comma-separated ticker symbols</p>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="portfolioSize">Portfolio value</label>
+              <input type="number" id="portfolioSize" placeholder="1000000" min="1" max="999999" step="any" required>
+            </div>
+            <div class="field">
+              <label for="years">History (yrs)</label>
+              <input type="number" id="years" placeholder="5" min="1" max="5" step="1" required>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="numSimulations">Simulations</label>
+            <input type="number" id="numSimulations" placeholder="10000" min="1000" max="100000" step="1" required>
+            <p class="hint">Monte Carlo path count, 1,000&ndash;100,000</p>
+          </div>
+
+          <button type="button" class="field-toggle" id="weightsToggle">+ Custom weights</button>
+          <div class="field field-collapsible" id="weightsField" hidden>
+            <label for="weights">Weights</label>
+            <input type="text" id="weights" placeholder="0.4, 0.35, 0.25" autocomplete="off">
+            <p class="hint">Must match ticker count and sum to 1. Leave blank for equal weighting.</p>
+          </div>
+
+          <button type="submit" class="btn-primary" id="submitBtn">
+            <span id="submitLabel">Calculate</span>
+            <span class="spinner" id="spinner" hidden></span>
+          </button>
+        </form>
+
+        <div class="error-box" id="errorBox" hidden></div>
+      </section>
+
+      <!-- Results -->
+      <section class="results" id="results" hidden>
+
+        <div class="compare-strip">
+          <div class="compare-card">
+            <p class="compare-label">Monte Carlo &middot; 95%</p>
+            <p class="compare-value" id="mcVar95">&mdash;</p>
+          </div>
+          <div class="compare-divider">
+            <span class="compare-delta" id="deltaVar95"></span>
+          </div>
+          <div class="compare-card">
+            <p class="compare-label">Neural Net &middot; 95%</p>
+            <p class="compare-value" id="nnVar95">&mdash;</p>
+          </div>
+        </div>
+
+        <div class="compare-strip">
+          <div class="compare-card">
+            <p class="compare-label">Monte Carlo &middot; 99%</p>
+            <p class="compare-value" id="mcVar99">&mdash;</p>
+          </div>
+          <div class="compare-divider">
+            <span class="compare-delta" id="deltaVar99"></span>
+          </div>
+          <div class="compare-card">
+            <p class="compare-label">Neural Net &middot; 99%</p>
+            <p class="compare-value" id="nnVar99">&mdash;</p>
+          </div>
+        </div>
+
+        <p class="compare-note" id="comparisonNote"></p>
+
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="mc" type="button">Monte Carlo</button>
+          <button class="tab-btn" data-tab="nn" type="button">Neural Network</button>
+        </div>
+
+        <div class="tab-panel active" id="tab-mc">
+          <div class="card">
+            <div class="metric-grid metric-grid-3">
+              <div class="metric">
+                <p class="metric-label">VaR 95%</p>
+                <p class="metric-value" id="mcVar95Full">&mdash;</p>
+              </div>
+              <div class="metric">
+                <p class="metric-label">VaR 99%</p>
+                <p class="metric-value" id="mcVar99Full">&mdash;</p>
+              </div>
+              <div class="metric">
+                <p class="metric-label">CVaR</p>
+                <p class="metric-value" id="mcCvar">&mdash;</p>
+              </div>
+            </div>
+            <p class="method-message" id="mcMessage"></p>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-nn">
+          <div class="card">
+            <div class="metric-grid metric-grid-2">
+              <div class="metric">
+                <p class="metric-label">VaR 95%</p>
+                <p class="metric-value" id="nnVar95Full">&mdash;</p>
+              </div>
+              <div class="metric">
+                <p class="metric-label">VaR 99%</p>
+                <p class="metric-value" id="nnVar99Full">&mdash;</p>
+              </div>
+            </div>
+            <p class="method-message" id="nnMessage"></p>
+          </div>
+
+          <div class="card">
+            <h3 class="panel-title">Per-ticker breakdown</h3>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Ticker</th>
+                    <th>As of</th>
+                    <th>q05</th>
+                    <th>q01</th>
+                    <th>Weight</th>
+                    <th>Value</th>
+                    <th>VaR 95%</th>
+                    <th>VaR 99%</th>
+                  </tr>
+                </thead>
+                <tbody id="tickerTableBody"></tbody>
+              </table>
+            </div>
+            <p class="hint hint-flag"><span class="flag-swatch"></span> Negative VaR: model reads this ticker as low-risk enough that even its tail case is a gain</p>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
