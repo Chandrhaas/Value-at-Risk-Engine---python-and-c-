@@ -1,15 +1,25 @@
 # specifying the compiler
-CXX = clang++
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    CXX ?= clang++
+else
+    CXX ?= g++
+endif
 
 INCLUDES = $(shell python -m pybind11 --includes)
 
-# FILE EXTENSION: Python expects a specific suffix for C++ extensions on Mac 
+# FILE EXTENSION: Python expects a specific suffix for C++ extensions 
 SUFFIX = $(shell python -m pybind11 --extension-suffix)
 
 # O3 is optimization, Wall enables warnings, std=c++17 tells c++ version, shared makes a library
 # fPIC allows it to be loaded anywhere in memory.
 # '-undefined dynamic_lookup' is REQUIRED on Mac so clang doesn't panic over missing Python symbols.
-CXXFLAGS = -O3 -Wall -std=c++17 -shared -fPIC -undefined dynamic_lookup
+ifeq ($(UNAME_S),Darwin)
+    UNDEFINED_FLAG = -undefined dynamic_lookup
+else
+    UNDEFINED_FLAG =
+endif
+CXXFLAGS = -O3 -Wall -std=c++17 -shared -fPIC $(UNDEFINED_FLAG)
 
 # variables
 srcdir = src_cpp
